@@ -1,24 +1,41 @@
-import { Controller } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+} from '@nestjs/common';
 import { TodoDTO, TodoService } from './todo.service';
 import { Todo } from './todo.model';
 
-@Controller('todo')
+@Controller('/todos')
 export class TodoController {
   constructor(private readonly todoService: TodoService) {}
 
-  getTodos() {
+  @Get()
+  async getTodos(): Promise<Todo[]> {
     return this.todoService.getTodos();
   }
 
-  getTodo(id: string) {
+  @Get('/:id')
+  async getTodo(@Param('id') id: string) {
     return this.todoService.getTodo(id);
   }
 
-  createTodo(todoDto: TodoDTO) {
+  @Post()
+  async createTodo(@Body() todoDto: TodoDTO) {
     return this.todoService.createTodo(todoDto);
   }
 
-  updateTodo(id: string, todoDto: TodoDTO) {
+  @Put('/:id')
+  async updateTodo(@Param('id') id: string, @Body() todoDto: TodoDTO) {
     return this.todoService.updateTodo(id, todoDto);
+  }
+
+  @Delete('/:id')
+  async deleteTodo(@Param('id') id: string) {
+    return this.todoService.deleteTodo(id);
   }
 }

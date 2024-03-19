@@ -1,34 +1,57 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Todo } from './todo.model';
+import { IsNotEmpty, IsString } from 'class-validator';
+import { PrismaService } from '../prisma/prisma.service';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 
-export type TodoDTO = Omit<Todo, 'id'>;
+export class TodoDTO {
+  @IsNotEmpty()
+  @IsString()
+  text!: string;
+}
 
 @Injectable()
 export class TodoService {
-  private readonly todos: Todo[] = [];
-  getTodos(): any {
-    return this.todos;
+  constructor(private readonly prismaService: PrismaService) {}
+
+  async getTodos(): Promise<Todo[]> {
+    return this.prismaService.todo.findMany();
   }
 
-  getTodo(id: string) {
-    return this.todos.find((todo) => todo.id === id);
+  async getTodo(id: string): Promise<Todo | null> {
+    return this.prismaService.todo.findUnique({
+      where: { id },
+    });
   }
 
-  createTodo(todoDto: TodoDTO) {
-    const newTodo: Todo = {
-      id: Math.random().toString(),
-      ...todoDto,
-    };
-    this.todos.push(newTodo);
-    return newTodo;
+  async createTodo(input: TodoDTO) {
+    return this.prismaService.todo.create({ data: input });
   }
 
-  updateTodo(id: string, input: TodoDTO) {
-    const todo = this.getTodo(id);
-    if (!todo) {
-      throw new NotFoundException();
+  async updateTodo(id: string, input: TodoDTO) {
+    try {
+      return await this.prismaService.todo.update({
+        where: { id },
+        data: input,
+      });
+    } catch (e) {
+      if (e instanceof PrismaClientKnownRequestError && e.code === 'P2025') {
+        throw new NotFoundException();
+      }
+      throw e;
     }
-    Object.assign(todo, input);
-    return todo;
+  }
+
+  async deleteTodo(id: string) {
+    try {
+      return await this.prismaService.todo.delete({
+        where: { id },
+      });
+    } catch (e) {
+      if (e instanceof PrismaClientKnownRequestError && e.code === 'P2025') {
+        return;
+      }
+      throw e;
+    }
   }
 }

@@ -1,69 +1,97 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TodoService } from './todo.service';
-import { Todo } from './todo.model';
 import { NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 describe('TodoService', () => {
   let service: TodoService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [TodoService],
+      providers: [TodoService, PrismaService],
     }).compile();
 
+    await module.get<PrismaService>(PrismaService).todo.deleteMany();
     service = module.get<TodoService>(TodoService);
   });
 
   describe('read', () => {
-    it('should return an empty by default', () => {
-      const todos = service.getTodos(); //act
+    it('should return an empty by default', async () => {
+      const todos = await service.getTodos(); //act
       expect(todos).toEqual([]); //assert
     });
 
-    it('should return a single todo after create', () => {
-      const createdTodo = service.createTodo({ text: 'test' }); //arrange
-      const todo = service.getTodo(createdTodo.id); //act
+    it('should return a single todo after create', async () => {
+      const createdTodo = await service.createTodo({ text: 'test' }); //arrange
+      const todo = await service.getTodo(createdTodo.id); //act
       expect(todo).toEqual({ id: expect.any(String), text: 'test' }); //assert
     });
 
-    it('should return undefined if id is unknown', () => {
-      const todo = service.getTodo('42'); //act
-      expect(todo).toBeUndefined(); //assert
+    it('should return undefined if id is unknown', async () => {
+      const todo = await service.getTodo('42'); //act
+      expect(todo).toBeNull(); //assert
     });
   });
 
   describe('create', () => {
-    it('should return a single todo after create', () => {
-      service.createTodo({ text: 'test' }); //act
-      expect(service.getTodos()).toEqual([
+    it('should return a single todo after create', async () => {
+      await service.createTodo({ text: 'test' }); //act
+      expect(await service.getTodos()).toEqual([
         { id: expect.any(String), text: 'test' },
       ]); //assert
     });
   });
 
   describe('update', () => {
-    it('should return the updated todo with getTodo after update', () => {
-      const todo = service.createTodo({ text: 'test' }); //arrange
-      service.updateTodo(todo.id, { text: 'after update' }); //act
-      expect(service.getTodo(todo.id)).toEqual({
+    it('should return the updated todo with getTodo after update', async () => {
+      const todo = await service.createTodo({ text: 'test' }); //arrange
+      await service.updateTodo(todo.id, { text: 'after update' }); //act
+      expect(await service.getTodo(todo.id)).toEqual({
         id: todo.id,
         text: 'after update',
       }); //assert
     });
 
-    it('should return the updated todo after update', () => {
-      const todo = service.createTodo({ text: 'test' }); //arrange
-      const updatedTodo = service.updateTodo(todo.id, { text: 'after update' }); //act
+    it('should return the updated todo after update', async () => {
+      const todo = await service.createTodo({ text: 'test' }); //arrange
+      const updatedTodo = await service.updateTodo(todo.id, {
+        text: 'after update',
+      }); //act
       expect(updatedTodo).toEqual({
         id: todo.id,
         text: 'after update',
       }); //assert
     });
 
-    it('should return a NotFoundException after update', () => {
-      expect(() => {
-        service.updateTodo('42', { text: 'after update' });
-      }).toThrow(NotFoundException);
+    it('should return a NotFoundException after update', async () => {
+      await expect(async () => {
+        await service.updateTodo('42', { text: 'after update' });
+      }).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('delete', () => {
+    it('should delete the existing todo', async () => {
+      await service.createTodo({ text: 'a' });
+      const todoToDelete = await service.createTodo({ text: 'b' });
+      await service.createTodo({ text: 'c' }); //arrange
+
+      await service.deleteTodo(todoToDelete.id); //act
+
+      expect(await service.getTodos()).toEqual([
+        { id: expect.any(String), text: 'a' },
+        { id: expect.any(String), text: 'c' },
+      ]); //assert
+    });
+
+    it('should not delete anything if todo does not exist', async () => {
+      await service.createTodo({ text: 'test' }); //arrange
+
+      await service.deleteTodo('42'); //act
+
+      expect(await service.getTodos()).toEqual([
+        { id: expect.any(String), text: 'test' },
+      ]); //assert
     });
   });
 });
